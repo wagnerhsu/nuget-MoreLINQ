@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "dotnet-t4": {
+      "version": "2.3.0",
+      "commands": [
+        "t4"
+      ]
+    },
+    "dotnet-reportgenerator-globaltool": {
+      "version": "5.1.11",
+      "commands": [
+        "reportgenerator"
+      ]
+    },
+    "meziantou.framework.nugetpackagevalidation.tool": {
+      "version": "1.0.14",
+      "commands": [
+        "meziantou.validate-nuget-package"
+      ]
+    },
+    "powershell": {
+      "version": "7.4.0",
+      "commands": [
+        "pwsh"
+      ]
+    }
+  }
+}

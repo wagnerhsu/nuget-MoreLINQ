@@ -1,3 +1,20 @@
+#region License and Terms
+// MoreLINQ - Extensions to LINQ to Objects
+// Copyright (c) 2010 Leopold Bushkin. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+#endregion
+
 namespace MoreLinq.Test
 {
     using System;
@@ -15,8 +32,8 @@ namespace MoreLinq.Test
         [Test]
         public void TestSubsetsIsLazy()
         {
-            new BreakingSequence<int>().Subsets();
-            new BreakingSequence<int>().Subsets(5);
+            _ = new BreakingSequence<int>().Subsets();
+            _ = new BreakingSequence<int>().Subsets(5);
         }
 
         /// <summary>
@@ -28,8 +45,8 @@ namespace MoreLinq.Test
             const int count = 10;
             var sequence = Enumerable.Range(1, count);
 
-            AssertThrowsArgument.OutOfRangeException("subsetSize",() =>
-                sequence.Subsets(-5));
+            Assert.That(() => sequence.Subsets(-5),
+                        Throws.ArgumentOutOfRangeException("subsetSize"));
         }
 
         /// <summary>
@@ -42,10 +59,8 @@ namespace MoreLinq.Test
             var sequence = Enumerable.Range(1, count);
             var result = sequence.Subsets(count + 5);
 
-            AssertThrowsArgument.OutOfRangeException("subsetSize", () =>
-            {
-                result.Consume(); // this particular exception is deferred until sequence evaluation
-            });
+            Assert.That(result.Consume, // this particular exception is deferred until sequence evaluation
+                        Throws.ArgumentOutOfRangeException("subsetSize"));
         }
 
         /// <summary>
@@ -73,7 +88,7 @@ namespace MoreLinq.Test
             var prevSubset = Enumerable.Empty<int>();
             foreach (var subset in result)
             {
-                Assert.GreaterOrEqual(subset.Count, prevSubset.Count());
+                Assert.That(subset.Count, Is.GreaterThanOrEqualTo(prevSubset.Count()));
                 prevSubset = subset;
             }
         }
@@ -90,7 +105,7 @@ namespace MoreLinq.Test
 
             var expectedCount = Math.Pow(2, count);
 
-            Assert.AreEqual(expectedCount, result.Count());
+            Assert.That(result.Count(), Is.EqualTo(expectedCount));
         }
 
         /// <summary>
@@ -102,18 +117,31 @@ namespace MoreLinq.Test
             var sequence = Enumerable.Range(1, 4);
             var result = sequence.Subsets();
 
-            var expectedSubsets = new[]
-                                      {
-                                          new int[] {},
-                                          new[] {1}, new[] {2}, new[] {3}, new[] {4},
-                                          new[] {1,2}, new[] {1,3}, new[] {1,4}, new[] {2,3}, new[] {2,4}, new[] {3,4},
-                                          new[] {1,2,3}, new[] {1,2,4}, new[] {1,3,4}, new[] {2,3,4},
-                                          new[] {1,2,3,4}
-                                      };
+            var expectedSubsets = new int[][]
+            {
+                [],
+                [1], [2], [3], [4],
+                [1,  2], [1,  3], [1, 4], [2, 3], [2, 4], [3, 4],
+                [1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4],
+                [1, 2, 3, 4]
+            };
 
             var index = 0;
             foreach (var subset in result)
                 Assert.That(subset, Is.EqualTo(expectedSubsets[index++]));
+        }
+
+        /// <summary>
+        /// See <see href="https://github.com/morelinq/MoreLINQ/issues/645">issue #645</see>.
+        /// </summary>
+        [Test]
+        public void Test0SubsetIsEmptyList()
+        {
+            var sequence = Enumerable.Range(1, 4);
+            var actual = sequence.Subsets(0);
+
+            // For any set there is always 1 subset of size 0: the empty set.
+            actual.AssertSequenceEqual(new int[0]);
         }
 
         /// <summary>
@@ -130,7 +158,7 @@ namespace MoreLinq.Test
             // number of subsets of a given size is defined by the binomial coefficient: c! / ((c-s)!*s!)
             var expectedSubsetCount = Combinatorics.Binomial(count, subsetSize);
 
-            Assert.AreEqual(expectedSubsetCount, result.Count());
+            Assert.That(result.Count(), Is.EqualTo(expectedSubsetCount));
         }
 
         /// <summary>
@@ -142,28 +170,52 @@ namespace MoreLinq.Test
             var sequence = Enumerable.Range(1, 6);
             var result = sequence.Subsets(4);
 
-            var expectedSubsets = new[]
-                                      {
-                                          new[] {1,2,3,4},
-                                          new[] {1,2,3,5},
-                                          new[] {1,2,3,6},
-                                          new[] {1,2,4,5},
-                                          new[] {1,2,4,6},
-                                          new[] {1,2,5,6},
-                                          new[] {1,3,4,5},
-                                          new[] {1,3,4,6},
-                                          new[] {1,3,5,6},
-                                          new[] {1,4,5,6},
-                                          new[] {2,3,4,5},
-                                          new[] {2,3,4,6},
-                                          new[] {2,3,5,6},
-                                          new[] {2,4,5,6},
-                                          new[] {3,4,5,6},
-                                      };
+            var expectedSubsets = new int[][]
+            {
+                [1, 2, 3, 4],
+                [1, 2, 3, 5],
+                [1, 2, 3, 6],
+                [1, 2, 4, 5],
+                [1, 2, 4, 6],
+                [1, 2, 5, 6],
+                [1, 3, 4, 5],
+                [1, 3, 4, 6],
+                [1, 3, 5, 6],
+                [1, 4, 5, 6],
+                [2, 3, 4, 5],
+                [2, 3, 4, 6],
+                [2, 3, 5, 6],
+                [2, 4, 5, 6],
+                [3, 4, 5, 6],
+            };
 
             var index = 0;
             foreach (var subset in result)
                 Assert.That(subset, Is.EqualTo(expectedSubsets[index++]));
+        }
+
+        [Test(Description = "https://github.com/morelinq/MoreLINQ/issues/1047")]
+        public void TestEnumeratorCurrentReturnsSameReferenceOnEachAccess()
+        {
+            var source = Seq(1, 2, 3, 4, 5);
+
+            using var e = source.Subsets(3).GetEnumerator();
+            var moved = e.MoveNext();
+            var first = e.Current;
+            var second = e.Current;
+
+            Assert.That(moved, Is.True);
+            Assert.That(first, Is.SameAs(second));
+        }
+
+        [Test]
+        public void TestEachSubsetInstanceIsUnique()
+        {
+            var source = Seq(1, 2, 3, 4, 5);
+
+            var subsets = source.Subsets(2).ToArray();
+
+            Assert.That(subsets[0], Is.Not.SameAs(subsets[1]));
         }
     }
 }

@@ -53,26 +53,27 @@ namespace MoreLinq
         {
             if (first == null) throw new ArgumentNullException(nameof(first));
             if (second == null) throw new ArgumentNullException(nameof(second));
-            if (index < 0)  throw new ArgumentOutOfRangeException(nameof(index), "Index cannot be negative.");
+            if (index < 0) throw new ArgumentOutOfRangeException(nameof(index), "Index cannot be negative.");
 
-            return _(); IEnumerable<T> _()
+            return _(first, second, index);
+
+            static IEnumerable<T> _(IEnumerable<T> first, IEnumerable<T> second, int index)
             {
                 var i = -1;
 
-                using (var iter = first.GetEnumerator())
-                {
-                    while (++i < index && iter.MoveNext())
-                        yield return iter.Current;
+                using var iter = first.GetEnumerator();
 
-                    if (i < index)
-                       throw new ArgumentOutOfRangeException(nameof(index), "Insertion index is greater than the length of the first sequence.");
+                while (++i < index && iter.MoveNext())
+                    yield return iter.Current;
 
-                    foreach (var item in second)
-                        yield return item;
+                if (i < index)
+                    throw new ArgumentOutOfRangeException(nameof(index), "Insertion index is greater than the length of the first sequence.");
 
-                    while (iter.MoveNext())
-                        yield return iter.Current;
-                }
+                foreach (var item in second)
+                    yield return item;
+
+                while (iter.MoveNext())
+                    yield return iter.Current;
             }
         }
     }

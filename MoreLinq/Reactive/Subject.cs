@@ -23,51 +23,103 @@ namespace MoreLinq.Reactive
 
     sealed class Subject<T> : IObservable<T>, IObserver<T>
     {
-        List<IObserver<T>> _observers;
-        bool _completed;
-        Exception _error;
+        List<IObserver<T>>? observers;
+        bool completed;
+        Exception? error;
 
-        bool HasObservers => (_observers?.Count ?? 0) > 0;
-        List<IObserver<T>> Observers => _observers ?? (_observers = new List<IObserver<T>>());
+        bool HasObservers => (this.observers?.Count ?? 0) > 0;
+        List<IObserver<T>> Observers => this.observers ??= [];
 
-        bool IsMuted => _completed || _error != null;
+        bool IsMuted => this.completed || this.error != null;
 
         public IDisposable Subscribe(IObserver<T> observer)
         {
             if (observer == null) throw new ArgumentNullException(nameof(observer));
 
-            if (_error != null)
+            if (this.error != null)
             {
-                observer.OnError(_error);
+                observer.OnError(this.error);
                 return Disposable.Nop;
             }
 
-            if (_completed)
+            if (this.completed)
             {
                 observer.OnCompleted();
                 return Disposable.Nop;
             }
 
             Observers.Add(observer);
-            return Delegate.Disposable(() => Observers.Remove(observer));
+
+            return Delegate.Disposable(() =>
+            {
+                var observers = Observers;
+
+                // Could do the following to find the index of the
+                // the observer:
+                //
+                // var i = observers.FindIndex(o => o == observer);
+                //
+                // but it would require a closure allocation.
+
+                for (var i = 0; i < observers.Count; i++)
+                {
+                    if (observers[i] == observer)
+                    {
+                        if (this.shouldDeleteObserver)
+                            observers[i] = null!;
+                        else
+                            observers.RemoveAt(i);
+                        break;
+                    }
+                }
+            });
         }
+
+        bool shouldDeleteObserver; // delete (null) or remove an observer?
 
         public void OnNext(T value)
         {
             if (!HasObservers)
                 return;
 
-            foreach (var observer in Observers)
-                observer.OnNext(value);
+            var observers = Observers;
+
+            // Set a flag around iteration to indicate that an observer that
+            // disposes their subscription should be marked for deletion
+            // instead of being removed from the list of observers. The actual
+            // removal is then deferred until after the iteration is complete.
+
+            this.shouldDeleteObserver = true;
+
+            try
+            {
+                // DO NOT change the following loop into the for-each variant
+                // because an observer might dispose its subscription during
+                // the call to "OnNext" and List<T>'s enumerator will throw
+                // seeing that as a modification of the collection during
+                // enumeration.
+
+                for (var i = 0; i < observers.Count; i++)
+                    observers[i].OnNext(value);
+            }
+            finally
+            {
+                this.shouldDeleteObserver = false;
+
+                // Remove any observers that were marked for deletion during
+                // iteration.
+
+                _ = observers.RemoveAll(o => o == null);
+            }
         }
 
         public void OnError(Exception error) =>
-            OnFinality(ref _error, error, (observer, err) => observer.OnError(err));
+            OnFinality(ref this.error, error, (observer, err) => observer.OnError(err));
 
         public void OnCompleted() =>
-            OnFinality(ref _completed, true, (observer, _) => observer.OnCompleted());
+            OnFinality(ref this.completed, true, (observer, _) => observer.OnCompleted());
 
-        void OnFinality<TState>(ref TState state, TState value, Action<IObserver<T>, TState> action)
+        void OnFinality<TState>(ref TState? state, TState value, Action<IObserver<T>, TState> action)
         {
             if (IsMuted)
                 return;
@@ -78,8 +130,8 @@ namespace MoreLinq.Reactive
             // to be called so release the list of observers of this subject.
             // The list of observers will be garbage once this method returns.
 
-            var observers = _observers;
-            _observers = null;
+            var observers = this.observers;
+            this.observers = null;
 
             if (observers == null)
                 return;
